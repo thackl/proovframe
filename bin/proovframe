@@ -6,14 +6,11 @@ use strict;
 use Getopt::Long  qw(:config no_ignore_case bundling);
 use Data::Dumper;
 use Fasta::Parser;
-use List::Util;
+use List::Util qw(max);
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib/";
 
 # TODO: genetic code -> change stop codons
-#
-# TODO: make sure alignments don't overlap - can do this with diamond
-# (range-culling & k1), but there is still room for slight overlap
 
 GetOptions (
     "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
@@ -52,18 +49,21 @@ while (my $seq = $p->next_seq) {
     # print STDERR @alns+0, "\n";
 
     # compute frameshift pos and ins for all alns
+    my $fpos_prev = 1_000_000_000_000;
     foreach (@alns) {
         my ($cigar, $qstart, $qend, $qlen, $sid) = @$_;
         my ($fpos, $fsym) = cigar2frameshift(@$_);
         # fix sequence at frameshift positions
         if (@$fpos) {
-            $n_fix += @$fpos;
             for (my $j = $#$fpos; $j > -1; $j--) {
+                next unless $fpos->[$j] < $fpos_prev; # ignore overlapping fixes
+                $n_fix ++;
                 if ($fsym->[$j] > 0){ # del
                     $seq = $seq->substr_seq($fpos->[$j] +1, 0, "n"x$fsym->[$j])
                 }else { # ins
                     $seq = $seq->substr_seq($fpos->[$j], -$fsym->[$j], "")
                 }
+                $fpos_prev = $fpos->[$j];
             }
         }
 
@@ -104,7 +104,8 @@ sub get_alns {
             push(@ALNS, [$cigar, $qstart, $qend, $qlen, $sid]);
 
         }else{ # new alignment block
-            @alns = sort{$b->[1] <=> $a->[1]}@ALNS;
+            # sort by position, reverse, real end b (max(start,end)) > start/end a
+            @alns = sort{max($b->[1],$b->[2])  <=> $a->[1]}@ALNS;
             # overwrite and cache for next call;
             $next_id = $qid;
             @ALNS = [$cigar, $qstart, $qend, $qlen, $sid];
@@ -114,7 +115,10 @@ sub get_alns {
 
     if (eof($mapps)) {
         # print STDERR "  eof\n";
-        return @ALNS if $id eq $next_id;
+        if (!defined($next_id) || $id eq $next_id){
+            @alns = sort{max($b->[1],$b->[2])  <=> $a->[1]}@ALNS;
+            @ALNS = ();
+        }
     }
 
     return @alns;
