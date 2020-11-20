@@ -13,32 +13,35 @@ use lib "$RealBin/../lib/";
 # TODO: genetic code -> change stop codons
 
 GetOptions (
+    "genetic-code|g=i" => \(my $gcode = 11),
+     "S|no-stop-masking!" => \(my $no_stop_masking),
     "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
-    "a" => \(my $aln_file),
     "help|h!" => \(my $help),
     "debug|D!" => \(my $debug),
 ) or die("Error in command line arguments\n");
 
 if ($help || @ARGV < 2){
     print "Usage: proovframe seqs.fa diamond.tsv > out\n";
-    printf " %-19s  %s\n", "-o/--out", "write to this file [STDOUT]";
-    printf " %-19s  %s\n", "-h/--help", "show this help";
-    printf " %-19s  %s\n", "-D/--debug", "show debug messages";
-    print "diamond.tsv - diamond long-reads mode blastx 6 with extra cigar columns";
+    printf " %-21s  %s\n", "-g/--genetic-code", "genetic code table, sets stop codons [$gcode]";
+    printf " %-21s  %s\n", "-S/--no-stop-masking", "disable internal stop codon masking";
+    printf " %-21s  %s\n", "-o/--out", "write to this file [STDOUT]";
+    printf " %-21s  %s\n", "-h/--help", "show this help";
+    printf " %-21s  %s\n", "-D/--debug", "show debug messages";
+    print "\n";
+    print "diamond.tsv - diamond long-reads mode blastx 6 with extra cigar columns\n";
     exit 0;
 }
 
 my $p = Fasta::Parser->new(file => $ARGV[0]);
-open(my $mapps, $ARGV[1]) || die;
+open(my $mapps, $ARGV[1]) || die $!;
 
-# reads all records for one reads.
-
-
+# cigar codes that change pos in read
 my %pos = (M => 1, I => 1);
-
 my $next_id;
 my @ALNS = ();
+my $stop_codons = stop_codons($gcode);
 
+print STDERR "Stop codons that will be masked: $stop_codons\n";
 
 # go through all seqs
 my $n_fix = 0;
@@ -66,7 +69,6 @@ while (my $seq = $p->next_seq) {
                 $fpos_prev = $fpos->[$j];
             }
         }
-
         # fix in-frame stops within hits from same subject
         $seq = mask_internal_stops($seq, $qstart, $qend, $qlen)
     }
@@ -76,10 +78,9 @@ while (my $seq = $p->next_seq) {
     # print STDERR "\n" if $debug;
     # print STDERR join(" ", unpack("(A3)*", $seq->seq)), "\n" if $debug;
     print "$seq";
-
 }
 
-print STDERR "Fixed $n_fix sites in $n_reads reads\n";
+print STDERR "Modified $n_fix sites in $n_reads reads\n";
 
 # This runs through alignments, grabs consecutive alns from same read, and
 # returns them once an alignment to another read is encountered; Caches that
@@ -187,10 +188,44 @@ sub mask_internal_stops{
 
     # split into codons, replace stops
     my @codons = unpack("(A3)*", $ss->seq);
-    @codons[$m..$#codons-$m] = map{s/^T(?:AG|AA|GA)$/nnn/gri}@codons[$m..$#codons-$m];
+    @codons[$m..$#codons-$m] = map{s/^$stop_codons$/nnn/gri}@codons[$m..$#codons-$m];
     $ss->seq(join("", @codons));
     $ss->reverse_complement() if $rev;
 
     # add fixed seq back
     $seq->substr_seq($qmin-1, $qmax-$qmin+1, $ss->seq);
+}
+
+
+sub stop_codons{
+    my $code = shift;
+    my %stops = (
+        1 => "TAA|TAG|TGA",
+        2 => "TAA|TAG|AGA|AGG",
+        3 => "TAA|TAG",
+        4 => "TAA|TAG",
+        5 => "TAA|TAG",
+        6 => "TGA",
+        9 => "TAA|TAG",
+        10=> "TAA|TAG",
+        11=> "TAA|TAG|TGA",
+        12=> "TAA|TAG|TGA",
+        13=> "TAA|TAG",
+        14=> "TAG",
+        16=> "TAA|TGA",
+        21=> "TAA|TAG",
+        22=> "TCA|TAA|TGA",
+        23=> "TTA|TAA|TAG|TGA",
+        24=> "TAA|TAG",
+        25=> "TAA|TAG",
+        26=> "TAA|TAG|TGA",
+        27=> "TGA",
+        28=> "TAA|TAG|TGA",
+        29=> "TGA",
+        30=> "TGA",
+        31=> "TAA|TAG",
+        33=> "TAG"
+    );
+    die "Not a valid genetic code: $code" unless exists $stops{$code};
+    return $stops{$code};
 }
