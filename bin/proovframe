@@ -9,23 +9,27 @@ use Fasta::Parser;
 use List::Util qw(max);
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib/";
+$|++;
 
-# TODO: genetic code -> change stop codons
+my $VERSION = "0.9.1";
 
 GetOptions (
     "genetic-code|g=i" => \(my $gcode = 11),
-     "S|no-stop-masking!" => \(my $no_stop_masking),
+    "no-stop-masking|S!" => \(my $no_stop_masking),
     "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
     "help|h!" => \(my $help),
     "debug|D!" => \(my $debug),
+    "version|V!" => sub {print "proovframe-v$VERSION\n"; exit;},
 ) or die("Error in command line arguments\n");
 
 if ($help || @ARGV < 2){
+    print "proovframe-v$VERSION - frame-shift correction for long-read genomics data\n\n";
     print "Usage: proovframe seqs.fa diamond.tsv > out\n";
     printf " %-21s  %s\n", "-g/--genetic-code", "genetic code table, sets stop codons [$gcode]";
     printf " %-21s  %s\n", "-S/--no-stop-masking", "disable internal stop codon masking";
     printf " %-21s  %s\n", "-o/--out", "write to this file [STDOUT]";
     printf " %-21s  %s\n", "-h/--help", "show this help";
+    printf " %-21s  %s\n", "-V/--version", "show script version";
     printf " %-21s  %s\n", "-D/--debug", "show debug messages";
     print "\n";
     print "diamond.tsv - diamond long-reads mode blastx 6 with extra cigar columns\n";
@@ -33,6 +37,7 @@ if ($help || @ARGV < 2){
 }
 
 my $p = Fasta::Parser->new(file => $ARGV[0]);
+$p->check_format() or die "Expecting reads in fasta format\n";
 open(my $mapps, $ARGV[1]) || die $!;
 
 # cigar codes that change pos in read
@@ -41,13 +46,22 @@ my $next_id;
 my @ALNS = ();
 my $stop_codons = stop_codons($gcode);
 
-print STDERR "Stop codons that will be masked: $stop_codons\n";
+if ($no_stop_masking) {
+    print STDERR "Stop codons that will be masked: disabled\n";
+}else {
+    print STDERR "Stop codons that will be masked: $stop_codons\n";
+}
 
+print STDERR "Processing reads ...\n";
 # go through all seqs
 my $n_fix = 0;
 my $n_reads = 0;
+my $total_aln_len = 0;
+my $total_read_len = 0;
+my $total_stop_masked = 0;
 while (my $seq = $p->next_seq) {
-    $n_reads++;
+    $n_reads++; $total_read_len+=$seq->length;
+    print STDERR "\r$n_reads" unless $n_reads%10000;
     my @alns = get_alns($seq->id);
     # print STDERR @alns+0, "\n";
 
@@ -55,6 +69,7 @@ while (my $seq = $p->next_seq) {
     my $fpos_prev = 1_000_000_000_000;
     foreach (@alns) {
         my ($cigar, $qstart, $qend, $qlen, $sid) = @$_;
+        $total_aln_len+=abs($qend-$qstart)+1;
         my ($fpos, $fsym) = cigar2frameshift(@$_);
         # fix sequence at frameshift positions
         if (@$fpos) {
@@ -70,7 +85,7 @@ while (my $seq = $p->next_seq) {
             }
         }
         # fix in-frame stops within hits from same subject
-        $seq = mask_internal_stops($seq, $qstart, $qend, $qlen)
+        $seq = mask_internal_stops($seq, $qstart, $qend, $qlen) unless $no_stop_masking;
     }
     $seq->desc("");
 
@@ -80,8 +95,18 @@ while (my $seq = $p->next_seq) {
     print "$seq";
 }
 
-print STDERR "Modified $n_fix sites in $n_reads reads\n";
+print STDERR "\n";
+if ($n_reads) {
+    printf STDERR "%-25s %13d\n", "Total processed reads:", "$n_reads";
+    printf STDERR "%-25s %12.1f%%\n", "Average read coverage:", $total_aln_len/$total_read_len*100;
+    printf STDERR "%-25s %13d\n", "Sites modified:", "$n_fix";
+    printf STDERR "%-25s %13d\n", "Internal stops masked:", "$total_stop_masked";
+}
 
+
+
+
+#------------------------------------------------------------------------------#
 # This runs through alignments, grabs consecutive alns from same read, and
 # returns them once an alignment to another read is encountered; Caches that
 # alignment for next call;
@@ -188,7 +213,9 @@ sub mask_internal_stops{
 
     # split into codons, replace stops
     my @codons = unpack("(A3)*", $ss->seq);
-    @codons[$m..$#codons-$m] = map{s/^$stop_codons$/nnn/gri}@codons[$m..$#codons-$m];
+    @codons[$m..$#codons-$m] = map{
+        s/^$stop_codons$/nnn/gi && $total_stop_masked++; $_
+    }@codons[$m..$#codons-$m];
     $ss->seq(join("", @codons));
     $ss->reverse_complement() if $rev;
 
