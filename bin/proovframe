@@ -1,0 +1,192 @@
+#!/usr/bin/env perl
+# Created: 14 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use Data::Dumper;
+use Fasta::Parser;
+use List::Util;
+use FindBin qw($RealBin);
+use lib "$RealBin/../lib/";
+
+# TODO: genetic code -> change stop codons
+#
+# TODO: make sure alignments don't overlap - can do this with diamond
+# (range-culling & k1), but there is still room for slight overlap
+
+GetOptions (
+    "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
+    "a" => \(my $aln_file),
+    "help|h!" => \(my $help),
+    "debug|D!" => \(my $debug),
+) or die("Error in command line arguments\n");
+
+if ($help || @ARGV < 2){
+    print "Usage: proovframe seqs.fa diamond.tsv > out\n";
+    printf " %-19s  %s\n", "-o/--out", "write to this file [STDOUT]";
+    printf " %-19s  %s\n", "-h/--help", "show this help";
+    printf " %-19s  %s\n", "-D/--debug", "show debug messages";
+    print "diamond.tsv - diamond long-reads mode blastx 6 with extra cigar columns";
+    exit 0;
+}
+
+my $p = Fasta::Parser->new(file => $ARGV[0]);
+open(my $mapps, $ARGV[1]) || die;
+
+# reads all records for one reads.
+
+
+my %pos = (M => 1, I => 1);
+
+my $next_id;
+my @ALNS = ();
+
+
+# go through all seqs
+my $n_fix = 0;
+my $n_reads = 0;
+while (my $seq = $p->next_seq) {
+    $n_reads++;
+    my @alns = get_alns($seq->id);
+    # print STDERR @alns+0, "\n";
+
+    # compute frameshift pos and ins for all alns
+    foreach (@alns) {
+        my ($cigar, $qstart, $qend, $qlen, $sid) = @$_;
+        my ($fpos, $fsym) = cigar2frameshift(@$_);
+        # fix sequence at frameshift positions
+        if (@$fpos) {
+            $n_fix += @$fpos;
+            for (my $j = $#$fpos; $j > -1; $j--) {
+                if ($fsym->[$j] > 0){ # del
+                    $seq = $seq->substr_seq($fpos->[$j] +1, 0, "n"x$fsym->[$j])
+                }else { # ins
+                    $seq = $seq->substr_seq($fpos->[$j], -$fsym->[$j], "")
+                }
+            }
+        }
+
+        # fix in-frame stops within hits from same subject
+        $seq = mask_internal_stops($seq, $qstart, $qend, $qlen)
+    }
+    $seq->desc("");
+
+    # print fixed sequence
+    # print STDERR "\n" if $debug;
+    # print STDERR join(" ", unpack("(A3)*", $seq->seq)), "\n" if $debug;
+    print "$seq";
+
+}
+
+print STDERR "Fixed $n_fix sites in $n_reads reads\n";
+
+# This runs through alignments, grabs consecutive alns from same read, and
+# returns them once an alignment to another read is encountered; Caches that
+# alignment for next call;
+sub get_alns {
+    my ($id)  = @_;
+    my @alns = ();
+    # print STDERR "$id\n";
+    if (defined($next_id) && $id ne $next_id) {
+        # print STDERR "  read has no alignments\n";
+        return ();
+    } # this read has no alignments
+
+    # debug
+    die if @ALNS > 1; # if this happens, my logic is off.
+    while (<$mapps>) {
+        chomp();
+        my ($qid, $sid, $pid, $len, $mis, $gap, $qstart, $qend, $sstart, $send,
+            $evalue, $bitscore, $qlen, $cigar) = split("\t");
+        next unless $cigar =~ tr{/\\}{}; # ignore alns w/o frameshift
+        if ($qid eq $id) { # current alignment block
+            push(@ALNS, [$cigar, $qstart, $qend, $qlen, $sid]);
+
+        }else{ # new alignment block
+            @alns = sort{$b->[1] <=> $a->[1]}@ALNS;
+            # overwrite and cache for next call;
+            $next_id = $qid;
+            @ALNS = [$cigar, $qstart, $qend, $qlen, $sid];
+            last;
+        }
+    }
+
+    if (eof($mapps)) {
+        # print STDERR "  eof\n";
+        return @ALNS if $id eq $next_id;
+    }
+
+    return @alns;
+}
+
+sub cigar2frameshift{
+    my ($cig, $qstart, $qend, $qlen) = @_;
+    my @cig = split(/(\D)/, $cig);
+    my @fpos;
+    my @fsym;
+
+    # go through rev from the back
+    my $rev = $qstart > $qend;
+    my $pos = $rev ? $qlen - $qstart +1 : $qstart;
+
+    # parse coordinates of frameshifts from cigar
+    #
+    # "/" and "\\" are an issue because the can denote both, a 1/2 bp ins or
+    # del. Taking into account context, there is a way: cigar for +1:M1\ +2:I1/
+    # -1:M1/ -2:D1\. Not 100%, though.
+    for (my $i=0; $i<@cig; $i+=2) {
+        my $num = $cig[$i];
+        my $sym = $cig[$i+1];
+        if (exists($pos{$sym})){
+            $pos += $num * 3
+        }elsif ($sym eq '\\'){
+            $pos+= +1;
+            if ($cig[$i-1] eq "D"){ # -2:D1\
+                push @fpos, $pos-2;
+                push @fsym, 2;
+            }else{ # +1:M1\
+                push @fpos, $pos-2;
+                push @fsym, -1;
+            }
+        }elsif ($sym eq '/'){
+            $pos+= -1;
+            if ($cig[$i-1] eq "I"){ # +2:I1/
+                push @fpos, $pos-3;
+                push @fsym, -2;
+            }else{ # -1:M1/
+                push @fpos, $pos-2;
+                push @fsym, 1;
+            }
+        }
+    }
+
+    if ($rev) {
+        @fpos = map{$qlen-$_+1}reverse(@fpos) if $rev; # reverse
+        @fsym = reverse(@fsym);
+    }
+
+    return \@fpos, \@fsym;
+}
+
+
+sub mask_internal_stops{
+    my ($seq, $qstart, $qend, $qlen) = @_;
+    my $m = 5; # n codons from start&end ignored
+    my ($qmin, $qmax) = sort {$a <=> $b}($qstart, $qend);
+    my $rev = $qstart > $qend ? 1 : 0;
+
+    # extract subseq covered by alignment
+    my $ss = $seq->substr_seq($qmin-1, $qmax-$qmin+1);
+    return $seq if $ss->length < $m*7;
+    $ss->reverse_complement() if $rev;
+
+    # split into codons, replace stops
+    my @codons = unpack("(A3)*", $ss->seq);
+    @codons[$m..$#codons-$m] = map{s/^T(?:AG|AA|GA)$/nnn/gri}@codons[$m..$#codons-$m];
+    $ss->seq(join("", @codons));
+    $ss->reverse_complement() if $rev;
+
+    # add fixed seq back
+    $seq->substr_seq($qmin-1, $qmax-$qmin+1, $ss->seq);
+}
