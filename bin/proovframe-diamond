@@ -1,0 +1,59 @@
+#!/usr/bin/env perl
+# Created: 20 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use Data::Dumper;
+use Text::Wrap qw(wrap);
+use File::Basename;
+$Text::Wrap::columns = 70;
+$Text::Wrap::separator=" \\\n  ";
+
+GetOptions (
+    "threads|t=i" => \(my $threads = 4),
+    "db|d=s" => \(my $db),
+    "aa|a=s" => \(my $aa),
+    "out|o=s" => \(my $out),
+    "help|h!" => \(my $help),
+    "debug|D!" => \(my $debug),
+) or die("Error in command line arguments\n");
+
+if ($help || @ARGV < 1){
+    print "Run diamond for later use with proovframe (convenience wrapper)\n";
+    print "Usage: proovframe-diamond [-a|-d proteins] -o alignments.tsv reads.fa -- diamond-params\n";
+    printf " %-19s  %s\n", "-a/--aa", "protein file, not required if db provided.";
+    printf " %-19s  %s\n", "-d/--db", "created if not existing and --aa given [basename(aa).dmnd]";
+    printf " %-19s  %s\n", "-o/--out", "write alignments to this file [basename(reads).tsv]";
+    printf " %-19s  %s\n", "-t/--threads", "number of CPU threads";
+    printf " %-19s  %s\n", "-h/--help", "show this help";
+    printf " %-19s  %s\n", "-D/--debug", "show debug messages";
+    exit 0;
+}
+
+die "Either --aa or --db required\n" if (!defined($aa) && !defined $db);
+
+# print join(" ", @ARGV),"\n";
+my $reads = shift(@ARGV);
+$db//=basename($aa, qw(.fa .faa .fas .fasta)).".dmnd";
+$out//=basename($reads, qw(.fa .fna .fasta)).".tsv";
+
+print "\nCreating database:\n";
+if (!-e $db) {
+    die "--aa required" unless defined($aa);
+    my $dmnd_makedb = "diamond makedb -p $threads --in $aa --db $db";
+    print wrap("  ", "", $dmnd_makedb), "\n\n";
+    qx($dmnd_makedb);
+}else {
+    print "  $db exists, won't overwrite\n";
+}
+
+print "\nMapping proteins:\n";
+my $dmnd_blastx = "diamond blastx @ARGV -p $threads --db $db --query $reads ".
+    "--range-culling -F 15 --more-sensitive -k 1 ".
+    "--outfmt 6 qseqid sseqid pident length mismatch gapopen qstart ".
+    "qend sstart send evalue bitscore qlen cigar sseq btop --out $out";
+print wrap("  ", "", $dmnd_blastx), "\n\n";
+qx($dmnd_blastx);
+
+print "\nDone\n";
