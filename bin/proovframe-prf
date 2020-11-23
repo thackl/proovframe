@@ -15,12 +15,13 @@ GetOptions (
 ) or die("Error in command line arguments\n");
 
 if ($help || @ARGV < 2){
-    print "Usage: estimate-errors.pl ref.fa qry.fa\n";
+    print "Usage: proovframe error ref.fa qry.fa\n";
     printf " %-19s  %s\n", "-n/--num-reads", "only assess first [$num_reads]";
     printf " %-19s  %s\n", "-m/--min-map-frac", "only assess seqs with at least this fraction aligned [$min_map_frac]";
     printf " %-19s  %s\n", "-o/--out", "write to this file [STDOUT]";
     printf " %-19s  %s\n", "-h/--help", "show this help";
     printf " %-19s  %s\n", "-D/--debug", "show debug messages";
+    print "\nRequires minimap2 and seqkit in PATH\n";
     exit 0;
 }
 
