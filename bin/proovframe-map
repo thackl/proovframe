@@ -20,8 +20,7 @@ GetOptions (
 ) or die("Error in command line arguments\n");
 
 if ($help || @ARGV < 1){
-    print "Run diamond for later use with proovframe (convenience wrapper)\n";
-    print "Usage: proovframe-diamond [-a|-d proteins] -o alignments.tsv reads.fa -- diamond-params\n";
+    print "Usage: proovframe map [-a|-d proteins] -o alignments.tsv reads.fa -- diamond-params\n";
     printf " %-19s  %s\n", "-a/--aa", "protein file, not required if db provided.";
     printf " %-19s  %s\n", "-d/--db", "created if not existing and --aa given [basename(aa).dmnd]";
     printf " %-19s  %s\n", "-o/--out", "write alignments to this file [basename(reads).tsv]";
@@ -38,12 +37,12 @@ my $reads = shift(@ARGV);
 $db//=basename($aa, qw(.fa .faa .fas .fasta)).".dmnd";
 $out//=basename($reads, qw(.fa .fna .fasta)).".tsv";
 
-print "\nCreating database:\n";
+print "Creating database:\n";
 if (!-e $db) {
     die "--aa required" unless defined($aa);
     my $dmnd_makedb = "diamond makedb -p $threads --in $aa --db $db";
     print wrap("  ", "", $dmnd_makedb), "\n\n";
-    qx($dmnd_makedb);
+    system($dmnd_makedb) && die "diamond makedb returned with an error!";
 }else {
     print "  $db exists, won't overwrite\n";
 }
@@ -54,6 +53,6 @@ my $dmnd_blastx = "diamond blastx @ARGV -p $threads --db $db --query $reads ".
     "--outfmt 6 qseqid sseqid pident length mismatch gapopen qstart ".
     "qend sstart send evalue bitscore qlen cigar sseq btop --out $out";
 print wrap("  ", "", $dmnd_blastx), "\n\n";
-qx($dmnd_blastx);
+system($dmnd_blastx) && die "diamond blastx returned with an error!";;
 
 print "\nDone\n";
