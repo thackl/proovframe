@@ -64,6 +64,9 @@ while (my $seq = $p->next_seq) {
     my $fpos_prev = 1_000_000_000_000;
     foreach (@alns) {
         my ($cigar, $qstart, $qend, $qlen, $sid) = @$_;
+        my ($qmin, $qmax) = sort {$a <=> $b}($qstart, $qend);
+        my $rev = $qstart > $qend ? 1 : 0;
+
         $total_aln_len+=abs($qend-$qstart)+1;
         my ($fpos, $fsym) = cigar2frameshift(@$_);
         # fix sequence at frameshift positions
@@ -72,15 +75,17 @@ while (my $seq = $p->next_seq) {
                 next unless $fpos->[$j] < $fpos_prev; # ignore overlapping fixes
                 $n_fix ++;
                 if ($fsym->[$j] > 0){ # del
-                    $seq = $seq->substr_seq($fpos->[$j] +1, 0, "n"x$fsym->[$j])
+                    $seq = $seq->substr_seq($fpos->[$j] +1, 0, "n"x$fsym->[$j]);
                 }else { # ins
-                    $seq = $seq->substr_seq($fpos->[$j], -$fsym->[$j], "")
+                    $seq = $seq->substr_seq($fpos->[$j], -$fsym->[$j], "");
                 }
                 $fpos_prev = $fpos->[$j];
+                # need to track change in seq len for stop masking
+                $qmax+=$fsym->[$j];
             }
         }
         # fix in-frame stops within hits from same subject
-        $seq = mask_internal_stops($seq, $qstart, $qend, $qlen) unless $no_stop_masking;
+        $seq = mask_internal_stops($seq, $qmin, $qmax, $rev) unless $no_stop_masking;
     }
     $seq->desc("");
 
@@ -196,10 +201,8 @@ sub cigar2frameshift{
 
 
 sub mask_internal_stops{
-    my ($seq, $qstart, $qend, $qlen) = @_;
+    my ($seq, $qmin, $qmax, $rev) = @_;
     my $m = 5; # n codons from start&end ignored
-    my ($qmin, $qmax) = sort {$a <=> $b}($qstart, $qend);
-    my $rev = $qstart > $qend ? 1 : 0;
 
     # extract subseq covered by alignment
     my $ss = $seq->substr_seq($qmin-1, $qmax-$qmin+1);
