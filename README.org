@@ -1,0 +1,37 @@
+* proovframe: frame-shift correction for long read (meta)genomics
+
+[[file:implementation.png]]
+
+Gene prediction on long reads, aka PacBio and Nanopore, is often impaired by
+indels causing frameshift. Proovframe detects and corrects frameshifts in coding
+sequences from raw long reads or long-read derived assemblies.  
+
+Proovframe uses frameshift-aware alignments to reference proteins as guides, and
+conservatively restores frame-fidelity by 1/2-base deletions or insertions of
+"N/NN"s, and masking of premature stops ("NNN").
+
+Good results can already be obtained with distantly related guide proteins-
+successfully tested with sets with <60% amino acid identity.
+
+It can be used as an additional polishing step on top of classic
+consensus-polishing approaches for assemblies.
+
+It can be used on raw reads directly, which means it can be used on data lacking
+sequencing depth for consensus polishing - a common problem for a lot of rare
+things from environmental metagenomic samples, for example.
+ 
+
+** Usage
+
+Requires  [[https://github.com/bbuchfink/diamond][DIAMOND v2.0.3]] or newer for mapping.
+
+#+begin_src sh
+# install
+git clone https://github.com/thackl/proovframe
+# map proteins to reads
+proovframe/bin/proovframe map -a proteins.faa -o raw-seqs.tsv raw-seqs.fa
+# fix frameshifts in reads
+proovframe/bin/proovframe fix -o corrected-seqs.fa raw-seqs.fa raw-seqs.tsv
+#+end_src
+
+
