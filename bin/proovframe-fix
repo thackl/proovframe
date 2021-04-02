@@ -32,7 +32,7 @@ if ($help || @ARGV < 2){
 }
 
 my $p = Fasta::Parser->new(file => $ARGV[0]);
-$p->check_format() or die "Expecting reads in fasta format\n";
+$p->check_format() or die "Expecting seqs in fasta format\n";
 open(my $mapps, $ARGV[1]) || die $!;
 
 # cigar codes that change pos in read
@@ -47,7 +47,7 @@ if ($no_stop_masking) {
     print STDERR "Stop codons that will be masked: $stop_codons\n";
 }
 
-print STDERR "Processing reads ...\n";
+print STDERR "Processing seqs ...\n";
 # go through all seqs
 my $n_fix = 0;
 my $n_reads = 0;
@@ -97,8 +97,8 @@ while (my $seq = $p->next_seq) {
 
 print STDERR "\n";
 if ($n_reads) {
-    printf STDERR "%-25s %13d\n", "Total processed reads:", "$n_reads";
-    printf STDERR "%-25s %12.1f%%\n", "Average read coverage:", $total_aln_len/$total_read_len*100;
+    printf STDERR "%-25s %13d\n", "Total processed seqs:", "$n_reads";
+    printf STDERR "%-25s %12.1f%%\n", "Average seq coverage:", $total_aln_len/$total_read_len*100;
     printf STDERR "%-25s %13d\n", "Sites modified:", "$n_fix";
     printf STDERR "%-25s %13d\n", "Internal stops masked:", "$total_stop_masked";
 }
