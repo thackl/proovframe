@@ -15,7 +15,7 @@ GetOptions (
     "db|d=s" => \(my $db),
     "aa|a=s" => \(my $aa),
     "out|o=s" => \(my $out),
-    "diamond-mode|m=s" => \(my $mode),
+    "diamond-mode|m=s" => \(my $mode = "more-sensitive"),
     "dry-run|y" => \(my $dry),
     "help|h!" => \(my $help),
     "debug|D!" => \(my $debug),
