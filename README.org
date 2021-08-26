@@ -35,4 +35,9 @@ proovframe/bin/proovframe map -a proteins.faa -o raw-seqs.tsv raw-seqs.fa
 proovframe/bin/proovframe fix -o corrected-seqs.fa raw-seqs.fa raw-seqs.tsv
 #+end_src
 
+** Citing
 
+If you use proovframe and DIAMOND please cite: 
+
+- Hackl T, Trigodet F, Murat Eren A, Biller SJ, Eppley JM, Luo E, et al. "proovframe: frameshift-correction for long-read (meta)genomics", bioRxiv. 2021. p. 2021.08.23.457338. doi:10.1101/2021.08.23.457338
+- Buchfink B, Reuter K, Drost HG, "Sensitive protein alignments at tree-of-life scale using DIAMOND", Nature Methods 18, 366–368 (2021). doi:10.1038/s41592-021-01101-x
