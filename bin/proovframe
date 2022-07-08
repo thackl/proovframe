@@ -6,7 +6,7 @@ use strict;
 use Getopt::Long  qw(:config no_ignore_case bundling);
 use FindBin qw($RealBin);
 
-my $VERSION = "0.9.7";
+my $VERSION = "0.9.8";
 
 print STDERR "proovframe-v$VERSION - frame-shift correction for long-read genomics data\n\n";
 

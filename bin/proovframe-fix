@@ -87,7 +87,9 @@ while (my $seq = $p->next_seq) {
         # fix in-frame stops within hits from same subject
         $seq = mask_internal_stops($seq, $qmin, $qmax, $rev) unless $no_stop_masking;
     }
-    $seq->desc("");
+    my $desc = $seq->desc();
+    $desc =~ s/SUBSTR:.*//;
+    $seq->desc($desc);
 
     # print fixed sequence
     # print STDERR "\n" if $debug;
