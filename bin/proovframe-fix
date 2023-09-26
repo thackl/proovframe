@@ -239,6 +239,7 @@ sub stop_codons{
         12=> "TAA|TAG|TGA",
         13=> "TAA|TAG",
         14=> "TAG",
+        15=> "TAA|TGA",
         16=> "TAA|TGA",
         21=> "TAA|TAG",
         22=> "TCA|TAA|TGA",
