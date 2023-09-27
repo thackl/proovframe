@@ -22,17 +22,28 @@ sequencing depth for consensus polishing - a common problem for a lot of rare
 things from environmental metagenomic samples, for example.
  
 
-** Usage
+** Installation
 
-Requires  [[https://github.com/bbuchfink/diamond][DIAMOND v2.0.3]] or newer for mapping.
+Proovframe is available from [Bioconda](https://bioconda.github.io/recipes/proovframe/README.html), and thus can
+be installed with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/installing-with-conda.html),
+which will also install its dependencies.
 
 #+begin_src sh
-# install
-git clone https://github.com/thackl/proovframe
+conda install -c bioconda proovframe
+#+end_src
+
+If you decide to manual install the package cloning the repository,
+consider that it requires [[https://github.com/bbuchfink/diamond][DIAMOND v2.0.3]] 
+or newer (for mapping).
+
+** Usage 
+
+#+begin_src sh
 # map proteins to reads
-proovframe/bin/proovframe map -a proteins.faa -o raw-seqs.tsv raw-seqs.fa
+proovframe map -a proteins.faa -o raw-seqs.tsv raw-seqs.fa
+
 # fix frameshifts in reads
-proovframe/bin/proovframe fix -o corrected-seqs.fa raw-seqs.fa raw-seqs.tsv
+proovframe fix -o corrected-seqs.fa raw-seqs.fa raw-seqs.tsv
 #+end_src
 
 ** Citing
