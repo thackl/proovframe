@@ -24,8 +24,8 @@ things from environmental metagenomic samples, for example.
 
 ** Installation
 
-Proovframe is available from [Bioconda](https://bioconda.github.io/recipes/proovframe/README.html), and thus can
-be installed with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/installing-with-conda.html),
+Proovframe is available from [https://bioconda.github.io/recipes/proovframe/README.html][Bioconda]], and thus can
+be installed with [[https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/installing-with-conda.html][conda]],
 which will also install its dependencies.
 
 #+begin_src sh
