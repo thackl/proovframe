@@ -1,3 +1,8 @@
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/proovframe/badges/license.svg)](https://anaconda.org/bioconda/proovframe)
+[![Anaconda-Server Badge](https://img.shields.io/conda/dn/bioconda/proovframe.svg?style=flat)](https://anaconda.org/bioconda/proovframe)
+[![DOI](https://img.shields.io/badge/DOI-10.1101/2021.08.23.457338-blue)](https://doi.org/10.1101/2021.08.23.457338)   
+
+
 * proovframe: frame-shift correction for long read (meta)genomics
 
 Gene prediction on long reads, aka PacBio and Nanopore, is often impaired by
