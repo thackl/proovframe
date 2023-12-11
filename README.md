@@ -1,6 +1,7 @@
-[![Anaconda-Server Badge](https://anaconda.org/bioconda/proovframe/badges/license.svg)](https://anaconda.org/bioconda/proovframe)
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/proovframe/README.html)
 [![Anaconda-Server Badge](https://img.shields.io/conda/dn/bioconda/proovframe.svg?style=flat)](https://anaconda.org/bioconda/proovframe)
-[![DOI](https://img.shields.io/badge/DOI-10.1101/2021.08.23.457338-blue)](https://doi.org/10.1101/2021.08.23.457338)   
+[![DOI](https://img.shields.io/badge/DOI-10.1101/2021.08.23.457338-blue)](https://doi.org/10.1101/2021.08.23.457338)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/proovframe/badges/license.svg)](https://anaconda.org/bioconda/proovframe)
 
 
 proovframe: frame-shift correction for long read (meta)genomics
