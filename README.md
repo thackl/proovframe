@@ -9,8 +9,7 @@ Gene prediction on long reads, aka PacBio and Nanopore, is often impaired by
 indels causing frameshift. Proovframe detects and corrects frameshifts in coding
 sequences from raw long reads or long-read derived assemblies.  
 
-#+ATTR_HTML: :width 600px
-[[file:implementation.png]]
+<img src="implementation.png" width="600px" height="600px" />
 
 Proovframe uses frameshift-aware alignments to reference proteins as guides, and
 conservatively restores frame-fidelity by 1/2-base deletions or insertions of
