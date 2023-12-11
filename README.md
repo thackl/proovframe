@@ -14,7 +14,7 @@ sequences from raw long reads or long-read derived assemblies.
 
 Proovframe uses frameshift-aware alignments to reference proteins as guides, and
 conservatively restores frame-fidelity by 1/2-base deletions or insertions of
-"N/NN"s, and masking of premature stops ("NNN").
+`N/NN`s, and masking of premature stops (`NNN`).
 
 Good results can already be obtained with distantly related guide proteins-
 successfully tested with sets with <60% amino acid identity.
